@@ -49,7 +49,7 @@ jobs:
   main:
     runs-on: ubuntu-latest
     permissions:
-    actions: read
+      actions: read
     timeout-minutes: 10  # recommended that you set an overall job timeout
     steps:
     - uses: jsok/serialize-workflow-action@v1
