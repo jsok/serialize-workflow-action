@@ -1,0 +1,65 @@
+name: 'Serialize workflow runs'
+description: |
+  This action will wait for any previous runs of the named workflow and
+  supplied run number to complete before returning. It can be used to queue and
+  serialise workflow runs where the concurrency group behaviour is not
+  desireable (e.g. do not coalesce and cancel runs).
+inputs:
+  workflow:
+    description: 'Workflow ID or filename, if omitted will use currently running workflow'
+    required: false
+  run:
+    description: 'Workflow run number'
+    default: ${{ github.run_number }}
+    required: false
+  github-token:
+    description: 'GitHub access token to perform API calls'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+  - id: poll
+    shell: bash
+    env:
+      GITHUB_TOKEN: ${{ inputs.github-token }}
+    run: |-
+      get_workflow_id() {
+        gh api \
+          -q .workflow_id \
+          "repos/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }}"
+      }
+      get_runs() {
+        workflow="${1:-}"
+        status="${2:-}"
+        gh api \
+          --paginate \
+          -X GET \
+          -F status="${status}" \
+          -q .workflow_runs \
+          "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs"
+      }
+      count_runs() {
+        jq -s -re \
+          --argjson run "${{ inputs.run }}" \
+          '
+          flatten
+          | map(select(.run_number < $run))
+          | length
+          | if . > 0 then
+              "There are \(.) runs ahead of us in the queue"
+            else
+              null
+            end
+          '
+      }
+      workflow="${{ inputs.workflow }}"
+      if [ -z "${{ inputs.workflow }}" ]; then
+        workflow="$(get_workflow_id)"
+      fi
+
+      while { get_runs "${workflow}" queued & get_runs "${workflow}" in_progress; } | count_runs
+      do
+        echo "Waiting 5 seconds before checking queue position again..."
+        sleep 5
+      done
+      echo "There are no runs ahead of us in the queue, continuing..."
