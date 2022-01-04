@@ -1,9 +1,7 @@
 name: 'Serialize workflow runs'
 description: |
   This action will wait for any previous runs of the named workflow and
-  supplied run number to complete before returning. It can be used to queue and
-  serialise workflow runs where the concurrency group behaviour is not
-  desireable (e.g. do not coalesce and cancel runs).
+  supplied run number to complete before returning.
 inputs:
   workflow:
     description: 'Workflow ID or filename, if omitted will use currently running workflow'
